@@ -1,0 +1,193 @@
+
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>অনলাইন বুকিং - AKASH SANITARY PRO</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#eef3f8;font-family:Arial,sans-serif;color:#172033}
+header{background:#073b68;color:white;text-align:center;padding:22px}
+.container{max-width:600px;margin:20px auto;padding:15px}
+.card{background:white;padding:20px;border-radius:13px;margin-bottom:18px;box-shadow:0 3px 12px #0001}
+h2{color:#073b68}
+input,select,textarea{width:100%;padding:13px;margin:8px 0 15px;border:1px solid #ccd5df;border-radius:8px;font-size:16px}
+button{width:100%;padding:14px;background:#0874bd;color:white;border:0;border-radius:8px;font-size:16px;cursor:pointer}
+.result{background:#eaf3fb;padding:14px;border-radius:8px;margin-top:12px;display:none}
+a{color:#0874bd}
+</style>
+</head>
+<body>
+<header>
+<h2 style="color:white;margin:0">AKASH SANITARY PRO</h2>
+<p>অনলাইন বুকিং ও বুকিং স্ট্যাটাস</p>
+</header>
+
+<div class="container">
+<div class="card">
+<h2>নতুন বুকিং করুন</h2>
+
+<form id="bookingForm">
+<label>আপনার নাম</label>
+<input id="name" required maxlength="80" placeholder="আপনার নাম">
+
+<label>মোবাইল নম্বর</label>
+<input id="phone" required maxlength="20" placeholder="01XXXXXXXXX">
+
+<label>সম্পূর্ণ ঠিকানা</label>
+<textarea id="address" required maxlength="300" placeholder="গ্রাম, ইউনিয়ন, উপজেলা"></textarea>
+
+<label>কোন কাজ করাতে চান?</label>
+<select id="service" required>
+<option value="">কাজ নির্বাচন করুন</option>
+<option>স্যানিটারি ফিটিংস</option>
+<option>পানির পাইপলাইন স্থাপন</option>
+<option>বাথরুমের কাজ</option>
+<option>টাইলস লাগানো</option>
+<option>নতুন বাড়ির স্যানিটারি কাজ</option>
+<option>মেরামতের কাজ</option>
+</select>
+
+<label>আপনার পছন্দের তারিখ</label>
+<input type="date" id="date" required>
+
+<label>কাজের বিস্তারিত (ঐচ্ছিক)</label>
+<textarea id="details" maxlength="1000" placeholder="কাজ সম্পর্কে লিখুন"></textarea>
+
+<button type="submit" id="submitBtn">বুকিং জমা দিন</button>
+</form>
+
+<div class="result" id="success"></div>
+</div>
+
+<div class="card">
+<h2>বুকিং স্ট্যাটাস দেখুন</h2>
+<p>আপনার বুকিং আইডি লিখে কাজের অবস্থা দেখুন।</p>
+<input id="bookingId" placeholder="যেমন: ABC123">
+<button onclick="checkBooking()">স্ট্যাটাস দেখুন</button>
+<div class="result" id="statusResult"></div>
+</div>
+
+<p style="text-align:center"><a href="index.html">← হোম পেজে ফিরে যান</a></p>
+</div>
+
+<script type="module">
+import { initializeApp } from
+"https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
+
+import {
+getFirestore, collection, doc, writeBatch, getDoc, serverTimestamp
+} from
+"https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
+
+const firebaseConfig = {
+apiKey: "AIzaSyDafJaPuWzKK7BDGBIXb6MFdVOgVKPYfzM",
+authDomain: "akash-sanitary-new.firebaseapp.com",
+projectId: "akash-sanitary-new",
+storageBucket: "akash-sanitary-new.firebasestorage.app",
+messagingSenderId: "359598059007",
+appId: "1:359598059007:web:b9c9e853c16329ca53cbca"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const form = document.getElementById("bookingForm");
+
+form.addEventListener("submit", async (e) => {
+e.preventDefault();
+
+const btn = document.getElementById("submitBtn");
+btn.disabled = true;
+btn.textContent = "জমা হচ্ছে...";
+
+try {
+const bookingRef = doc(collection(db, "bookings"));
+const publicRef = doc(db, "publicBookings", bookingRef.id);
+
+const booking = {
+name: document.getElementById("name").value.trim(),
+phone: document.getElementById("phone").value.trim(),
+address: document.getElementById("address").value.trim(),
+service: document.getElementById("service").value,
+date: document.getElementById("date").value,
+details: document.getElementById("details").value.trim(),
+status: "নতুন বুকিং",
+workDate: "",
+createdAt: serverTimestamp()
+};
+
+if (!booking.name || !booking.phone || !booking.address) {
+throw new Error("সব প্রয়োজনীয় তথ্য পূরণ করুন।");
+}
+
+const batch = writeBatch(db);
+batch.set(bookingRef, booking);
+batch.set(publicRef, {
+status: "নতুন বুকিং",
+workDate: ""
+});
+
+await batch.commit();
+
+const success = document.getElementById("success");
+success.style.display = "block";
+success.innerHTML =
+"<h3>বুকিং সফল হয়েছে!</h3>" +
+"<p>আপনার বুকিং আইডি:</p><h2>" +
+bookingRef.id +
+"</h2><p>আইডিটি সংরক্ষণ করুন। পরে স্ট্যাটাস দেখতে লাগবে।</p>";
+
+form.reset();
+
+} catch (error) {
+alert("বুকিং করা যায়নি। আবার চেষ্টা করুন। Error: " + error.message);
+} finally {
+btn.disabled = false;
+btn.textContent = "বুকিং জমা দিন";
+}
+});
+
+window.checkBooking = async function() {
+const id = document.getElementById("bookingId").value.trim();
+const result = document.getElementById("statusResult");
+
+if (!id) {
+alert("বুকিং আইডি লিখুন।");
+return;
+}
+
+result.style.display = "block";
+result.textContent = "খোঁজা হচ্ছে...";
+
+try {
+const ref = doc(db, "publicBookings", id);
+const snap = await getDoc(ref);
+
+if (!snap.exists()) {
+result.textContent = "এই আইডির কোনো বুকিং পাওয়া যায়নি।";
+return;
+}
+
+const data = snap.data();
+result.innerHTML =
+"<h3>বুকিং পাওয়া গেছে</h3>" +
+"<p>অবস্থা: <b>" + escapeHTML(data.status) + "</b></p>" +
+"<p>কাজের তারিখ: <b>" +
+(data.workDate ? escapeHTML(data.workDate) : "এখনো নির্ধারিত হয়নি") +
+"</b></p>";
+
+} catch (error) {
+result.textContent = "স্ট্যাটাস দেখা যায়নি। আবার চেষ্টা করুন।";
+}
+};
+
+function escapeHTML(value) {
+return String(value).replace(/[&<>"']/g, c => ({
+"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+}[c]));
+}
+</script>
+</body>
+</html>
