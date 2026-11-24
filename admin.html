@@ -1,0 +1,256 @@
+
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin Panel - AKASH SANITARY PRO</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#eef3f8;font-family:Arial,sans-serif;color:#172033}
+header{background:#073b68;color:white;text-align:center;padding:22px}
+.container{max-width:1000px;margin:20px auto;padding:15px}
+.card{background:white;padding:20px;border-radius:12px;margin-bottom:18px;box-shadow:0 3px 12px #0001}
+input,select{width:100%;padding:12px;margin:8px 0 14px;border:1px solid #ccd5df;border-radius:8px;font-size:15px}
+button{padding:11px 15px;background:#0874bd;color:white;border:0;border-radius:7px;cursor:pointer;margin:3px}
+.delete{background:#c62828}
+.logout{background:#555}
+.booking{border:1px solid #dce4ed;padding:15px;border-radius:10px;margin:12px 0}
+.hidden{display:none}
+.small{font-size:13px;color:#526174}
+</style>
+</head>
+<body>
+
+<header>
+<h2 style="margin:0">AKASH SANITARY PRO</h2>
+<p>ADMIN CONTROL PANEL</p>
+</header>
+
+<div class="container">
+
+<div class="card" id="loginBox">
+<h2>Admin Login</h2>
+<label>ইমেইল</label>
+<input type="email" id="email" placeholder="Admin email" required>
+<label>পাসওয়ার্ড</label>
+<input type="password" id="password" placeholder="Admin password" required>
+<button onclick="login()">লগইন করুন</button>
+<p id="loginMsg"></p>
+</div>
+
+<div id="dashboard" class="hidden">
+<div class="card">
+<h2>ড্যাশবোর্ড</h2>
+<p>Admin হিসেবে লগইন সফল হয়েছে।</p>
+<button onclick="loadBookings()">রিফ্রেশ করুন</button>
+<button class="logout" onclick="logout()">লগআউট</button>
+</div>
+
+<div class="card">
+<h2>সব বুকিং</h2>
+<div id="bookingList">বুকিং লোড হচ্ছে...</div>
+</div>
+</div>
+
+</div>
+
+<script type="module">
+import { initializeApp } from
+"https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
+
+import {
+getFirestore, collection, getDocs, doc, writeBatch,
+deleteDoc
+} from
+"https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
+
+import {
+getAuth, signInWithEmailAndPassword, onAuthStateChanged,
+signOut
+} from
+"https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
+
+const firebaseConfig = {
+apiKey: "AIzaSyDafJaPuWzKK7BDGBIXb6MFdVOgVKPYfzM",
+authDomain: "akash-sanitary-new.firebaseapp.com",
+projectId: "akash-sanitary-new",
+storageBucket: "akash-sanitary-new.firebasestorage.app",
+messagingSenderId: "359598059007",
+appId: "1:359598059007:web:b9c9e853c16329ca53cbca"
+};
+
+const ADMIN_UID = "zvl9x6DX0BcBrzIJoPOuTL9GXrX2";
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+const loginBox = document.getElementById("loginBox");
+const dashboard = document.getElementById("dashboard");
+const loginMsg = document.getElementById("loginMsg");
+const bookingList = document.getElementById("bookingList");
+
+window.login = async function() {
+const email = document.getElementById("email").value.trim();
+const password = document.getElementById("password").value;
+
+loginMsg.textContent = "লগইন হচ্ছে...";
+
+try {
+await signInWithEmailAndPassword(auth, email, password);
+} catch(error) {
+loginMsg.textContent = "লগইন হয়নি। ইমেইল ও পাসওয়ার্ড পরীক্ষা করুন।";
+}
+};
+
+onAuthStateChanged(auth, async (user) => {
+if (user && user.uid === ADMIN_UID) {
+loginBox.classList.add("hidden");
+dashboard.classList.remove("hidden");
+await loadBookings();
+} else {
+dashboard.classList.add("hidden");
+loginBox.classList.remove("hidden");
+
+if (user) {
+await signOut(auth);
+loginMsg.textContent = "এই অ্যাকাউন্ট Admin নয়।";
+}
+}
+});
+
+window.logout = async function() {
+await signOut(auth);
+};
+
+window.loadBookings = async function() {
+bookingList.textContent = "লোড হচ্ছে...";
+
+try {
+const snapshot = await getDocs(collection(db, "bookings"));
+
+if (snapshot.empty) {
+bookingList.textContent = "এখনো কোনো বুকিং নেই।";
+return;
+}
+
+bookingList.innerHTML = "";
+
+snapshot.forEach((item) => {
+const b = item.data();
+const id = item.id;
+
+const div = document.createElement("div");
+div.className = "booking";
+
+const title = document.createElement("h3");
+title.textContent = "বুকিং: " + id;
+div.appendChild(title);
+
+function addInfo(label, value) {
+const p = document.createElement("p");
+p.textContent = label + ": " + (value || "দেওয়া হয়নি");
+div.appendChild(p);
+}
+
+addInfo("নাম", b.name);
+addInfo("মোবাইল", b.phone);
+addInfo("ঠিকানা", b.address);
+addInfo("কাজ", b.service);
+addInfo("পছন্দের তারিখ", b.date);
+addInfo("বিস্তারিত", b.details);
+
+const statusLabel = document.createElement("label");
+statusLabel.textContent = "বুকিং স্ট্যাটাস";
+div.appendChild(statusLabel);
+
+const status = document.createElement("select");
+
+[
+"নতুন বুকিং",
+"তারিখ নির্ধারিত",
+"মিস্ত্রি যাবে",
+"কাজ চলছে",
+"কাজ সম্পন্ন",
+"বাতিল"
+].forEach(value => {
+const option = document.createElement("option");
+option.value = value;
+option.textContent = value;
+if (b.status === value) option.selected = true;
+status.appendChild(option);
+});
+
+div.appendChild(status);
+
+const dateLabel = document.createElement("label");
+dateLabel.textContent = "মিস্ত্রি যাওয়ার তারিখ";
+div.appendChild(dateLabel);
+
+const workDate = document.createElement("input");
+workDate.type = "date";
+workDate.value = b.workDate || "";
+div.appendChild(workDate);
+
+const save = document.createElement("button");
+save.textContent = "পরিবর্তন সেভ করুন";
+save.onclick = () => updateBooking(id, status.value, workDate.value);
+div.appendChild(save);
+
+const del = document.createElement("button");
+del.textContent = "বুকিং ডিলিট";
+del.className = "delete";
+del.onclick = () => removeBooking(id);
+div.appendChild(del);
+
+bookingList.appendChild(div);
+});
+
+} catch(error) {
+bookingList.textContent = "বুকিং লোড হয়নি: " + error.message;
+}
+};
+
+async function updateBooking(id, newStatus, newDate) {
+if (!auth.currentUser || auth.currentUser.uid !== ADMIN_UID) return;
+
+try {
+const batch = writeBatch(db);
+batch.update(doc(db, "bookings", id), {
+status: newStatus,
+workDate: newDate
+});
+batch.update(doc(db, "publicBookings", id), {
+status: newStatus,
+workDate: newDate
+});
+await batch.commit();
+
+alert("বুকিং আপডেট হয়েছে।");
+await loadBookings();
+} catch(error) {
+alert("আপডেট হয়নি: " + error.message);
+}
+}
+
+async function removeBooking(id) {
+if (!auth.currentUser || auth.currentUser.uid !== ADMIN_UID) return;
+if (!confirm("এই বুকিংটি মুছে ফেলবেন?")) return;
+
+try {
+const batch = writeBatch(db);
+batch.delete(doc(db, "bookings", id));
+batch.delete(doc(db, "publicBookings", id));
+await batch.commit();
+
+alert("বুকিং মুছে ফেলা হয়েছে।");
+await loadBookings();
+} catch(error) {
+alert("ডিলিট হয়নি: " + error.message);
+}
+}
+</script>
+
+</body>
+</html>
